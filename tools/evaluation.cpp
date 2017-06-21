@@ -95,6 +95,7 @@ Evaluation::Evaluation(const std::string& folder) : folder_(folder), visualizati
 
   string associated_file = folder_ + "associated.txt";
   cout << "associated_file = " << associated_file << endl;
+  setMatchFile("associated.txt");
 }
 
 void Evaluation::setMatchFile(const std::string& file)

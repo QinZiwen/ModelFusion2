@@ -58,6 +58,7 @@ Work in progress: patch by Marco (AUG,19th 2012)
 #include <pcl/gpu/kinfu_large_scale/kinfu.h>
 #include <pcl/gpu/kinfu_large_scale/raycaster.h>
 #include <pcl/gpu/kinfu_large_scale/marching_cubes.h>
+#include <pcl/gpu/kinfu_large_scale/screenshot_manager.h>
 #include <pcl/gpu/containers/initialization.h>
 
 #include <pcl/common/time.h>
@@ -73,7 +74,6 @@ Work in progress: patch by Marco (AUG,19th 2012)
 #include <pcl/io/oni_grabber.h>
 #include <pcl/io/pcd_grabber.h>
 
-#include "openni_capture.h"
 #include "color_handler.h"
 #include "evaluation.h"
 
@@ -83,9 +83,8 @@ Work in progress: patch by Marco (AUG,19th 2012)
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #endif
-typedef pcl::ScopeTime ScopeTimeT;
 
-#include <pcl/gpu/kinfu_large_scale/screenshot_manager.h>
+typedef pcl::ScopeTime ScopeTimeT;
 
 using namespace std;
 using namespace pcl;
@@ -918,7 +917,6 @@ struct KinFuLSApp
     {
       depth_device_.upload (depth.data, depth.step, depth.rows, depth.cols);
 
-	  integrate_colors_ = true;
       if (integrate_colors_)
         image_view_.colors_device_.upload (rgb24.data, rgb24.step * 3, rgb24.rows, rgb24.cols);
 
@@ -1205,15 +1203,14 @@ struct KinFuLSApp
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   
-  void
-  startMainLoop_use_database ()
-  {
+void startMainLoop_use_database ()
+{
 	PCL_WARN("-- RUNNING MAIN LOOP USING DATABASE ... \n");
-	
+
 	pcl::gpu::PtrStepSz<const unsigned short> depth;
 	pcl::gpu::PtrStepSz<const pcl::gpu::kinfuLS::PixelRGB> rgb24;
 	double stamp = 0;
-    while (!exit_ && !scene_cloud_view_.cloud_viewer_.wasStopped () && !image_view_.viewerScene_.wasStopped () && !this->kinfu_->isFinished () && evaluation_ptr_->grab(stamp, depth, rgb24))
+	while (!exit_ && !scene_cloud_view_.cloud_viewer_.wasStopped () && !image_view_.viewerScene_.wasStopped () && !this->kinfu_->isFinished () && evaluation_ptr_->grab(stamp, depth, rgb24))
 	{
 		try 
 		{
@@ -1226,10 +1223,10 @@ struct KinFuLSApp
 		++stamp;
 		cout << "In main loop using DATABASE" << endl;                  
 	} 
-	
+
 	exit_ = true;
 	boost::this_thread::sleep (boost::posix_time::millisec (100));
-  }
+}
       
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   void
@@ -1451,160 +1448,175 @@ print_cli_help ()
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int
-main (int argc, char* argv[])
-{  
-  if (pc::find_switch (argc, argv, "--help") || pc::find_switch (argc, argv, "-h"))
-    return print_cli_help ();
-
-  int device = 0;
-  pc::parse_argument (argc, argv, "-gpu", device);
-  pcl::gpu::setDevice (device);
-  pcl::gpu::printShortCudaDeviceInfo (device);
-
-  //  if (checkIfPreFermiGPU(device))
-  //    return cout << endl << "Kinfu is supported only for Fermi and Kepler arhitectures. It is not even compiled for pre-Fermi by default. Exiting..." << endl, 1;
-
-  boost::shared_ptr<pcl::Grabber> capture;
-  bool triggered_capture = false;
-  bool pcd_input = false;
-
-  std::string eval_folder, match_file, openni_device, oni_file, pcd_dir;
-  try
-  {    
-    if (pc::parse_argument (argc, argv, "-dev", openni_device) > 0)
-    {
-	  PCL_WARN("-dev capture.reset() \n");
-      //capture.reset (new pcl::OpenNIGrabber (openni_device));
-      capture.reset( new pcl::io::OpenNI2Grabber(openni_device) );
-	  PCL_WARN("capture reset success! \n");
-    }
-    else if (pc::parse_argument (argc, argv, "-oni", oni_file) > 0)
-    {
-      triggered_capture = true;
-      bool repeat = false; // Only run ONI file once
-      capture.reset (new pcl::ONIGrabber (oni_file, repeat, !triggered_capture));
-    }
-    else if (pc::parse_argument (argc, argv, "-pcd", pcd_dir) > 0)
-    {
-      float fps_pcd = 15.0f;
-      pc::parse_argument (argc, argv, "-pcd_fps", fps_pcd);
-
-      vector<string> pcd_files = getPcdFilesInDir(pcd_dir);    
-      // Sort the read files by name
-      sort (pcd_files.begin (), pcd_files.end ());
-      capture.reset (new pcl::PCDGrabber<pcl::PointXYZRGBA> (pcd_files, fps_pcd, false));
-      triggered_capture = true;
-      pcd_input = true;
-    }
-    else if (pc::parse_argument (argc, argv, "-eval", eval_folder) > 0)
-    {
-      //init data source latter
-      pc::parse_argument (argc, argv, "-match_file", match_file);
-    }
-    else
-    {
-      //capture.reset( new pcl::OpenNIGrabber() );
-	  capture.reset( new pcl::io::OpenNI2Grabber() );
-		
-	  PCL_WARN("DEFAULT capture.reset() \n");  
-    }
-  }
-  catch (const pcl::PCLException& /*e*/) { return cout << "Can't open depth source" << endl, -1; }
-
-  float volume_size = pcl::device::kinfuLS::VOLUME_SIZE;
-  pc::parse_argument (argc, argv, "--volume_size", volume_size);
-  pc::parse_argument (argc, argv, "-vs", volume_size);
-
-  float shift_distance = pcl::device::kinfuLS::DISTANCE_THRESHOLD;
-  pc::parse_argument (argc, argv, "--shifting_distance", shift_distance);
-  pc::parse_argument (argc, argv, "-sd", shift_distance);
-
-  int snapshot_rate = pcl::device::kinfuLS::SNAPSHOT_RATE; // defined in device.h
-  pc::parse_argument (argc, argv, "--snapshot_rate", snapshot_rate);
-  pc::parse_argument (argc, argv, "-sr", snapshot_rate);
-
-  KinFuLSApp app (*capture, volume_size, shift_distance, snapshot_rate);
-
-  if (pc::parse_argument (argc, argv, "-eval", eval_folder) > 0)
-  {
-	  //cout << "eval_folder = " << eval_folder << endl;
-	  //cout << "match_file = " << match_file << endl;
-	  app.toggleEvaluationMode(eval_folder, match_file);
-  }
-
-  if (pc::find_switch (argc, argv, "--current-cloud") || pc::find_switch (argc, argv, "-cc"))
-    app.initCurrentFrameView ();
-
-  if (pc::find_switch (argc, argv, "--save-views") || pc::find_switch (argc, argv, "-sv"))
-    app.image_view_.accumulate_views_ = true;  //will cause bad alloc after some time  
-
-  if (pc::find_switch (argc, argv, "--registration") || pc::find_switch (argc, argv, "-r"))
-  {
-    if (pcd_input)
-	{
-      app.pcd_source_   = true;
-      app.registration_ = true; // since pcd provides registered rgbd
-    }
-    else
-	{
-      app.initRegistration();
-    }
-  }
-
-  if (pc::find_switch (argc, argv, "--integrate-colors") || pc::find_switch (argc, argv, "-ic"))
-  {
-	  if (pc::find_switch (argc, argv, "--registration") || pc::find_switch (argc, argv, "-r"))
-	  {
-		  app.toggleColorIntegration();
-	  }
-	  else
-	  {
-	      app.toggleColorIntegration_database();
-	  }
-  }
-
-  if (pc::find_switch (argc, argv, "--extract-textures") || pc::find_switch (argc, argv, "-et"))      
-    app.enable_texture_extraction_ = true;
-
-  // executing
-  if (triggered_capture) 
-    std::cout << "Capture mode: triggered\n";
-  else				     
-    std::cout << "Capture mode: stream\n";
-
-  // set verbosity level
-  pcl::console::setVerbosityLevel(pcl::console::L_VERBOSE);
-  try
-  {
+int main(int argc, char *argv[])
+{
+	pcl::Grabber *capture;
+	float volume_size = pcl::device::kinfuLS::VOLUME_SIZE;
+	float shift_distance = pcl::device::kinfuLS::DISTANCE_THRESHOLD;
+	int snapshot_rate = pcl::device::kinfuLS::SNAPSHOT_RATE;
+	
+	std::string eval_folder;
+	
+	KinFuLSApp app (*capture, volume_size, shift_distance, snapshot_rate);
+	
 	if (pc::parse_argument (argc, argv, "-eval", eval_folder) > 0)
 	{
-		app.startMainLoop_use_database();
+		app.toggleEvaluationMode(eval_folder);
 	}
 	else
 	{
-	    app.startMainLoop (triggered_capture);	
+		cout << "Usage ./pcl_kinfu_largeScale -eval database_path" << endl;
+		return -1;
 	}
-  }
-  catch (const pcl::PCLException& /*e*/) { cout << "PCLException" << endl; }
-  catch (const std::bad_alloc& /*e*/) { cout << "Bad alloc" << endl; }
-  catch (const std::exception& /*e*/) { cout << "Exception" << endl; }
-
-  //~ #ifdef HAVE_OPENCV
-  //~ for (size_t t = 0; t < app.image_view_.views_.size (); ++t)
-  //~ {
-  //~ if (t == 0)
-  //~ {
-  //~ cout << "Saving depth map of first view." << endl;
-  //~ cv::imwrite ("./depthmap_1stview.png", app.image_view_.views_[0]);
-  //~ cout << "Saving sequence of (" << app.image_view_.views_.size () << ") views." << endl;
-  //~ }
-  //~ char buf[4096];
-  //~ sprintf (buf, "./%06d.png", (int)t);
-  //~ cv::imwrite (buf, app.image_view_.views_[t]);
-  //~ printf ("writing: %s\n", buf);
-  //~ }
-  //~ #endif
-  std::cout << "pcl_kinfu_largeScale exiting...\n";
-  return 0;
+	
+	if (pc::find_switch (argc, argv, "--integrate_colors") || pc::find_switch (argc, argv, "-ic"))
+	{
+		app.integrate_colors_ = true;
+	}
+	
+	app.toggleColorIntegration_database();
+	
+	try
+	{
+		app.startMainLoop_use_database();
+	}
+	catch (const pcl::PCLException& /*e*/) { cout << "PCLException" << endl; }
+	catch (const std::bad_alloc& /*e*/) { cout << "Bad alloc" << endl; }
+	catch (const std::exception& /*e*/) { cout << "Exception" << endl; }
+	
+	return 0;
 }
+
+// int
+// main (int argc, char* argv[])
+// {
+// 	pcl::Grabber *grab = new pcl::io::OpenNI2Grabber();
+// 	grab->start();
+// 	grab->stop();
+// 	
+// // 	if (pc::find_switch (argc, argv, "--help") || pc::find_switch (argc, argv, "-h"))
+// // 		return print_cli_help ();
+// // 
+// // 	int device = 0;
+// // 	pc::parse_argument (argc, argv, "-gpu", device);
+// // 	pcl::gpu::setDevice (device);
+// // 	pcl::gpu::printShortCudaDeviceInfo (device);
+// // 
+// // 	pcl::Grabber *capture;
+// // 	bool triggered_capture = false;
+// // 	bool pcd_input = false;
+// // 
+// // 	std::string eval_folder, match_file, openni_device, oni_file, pcd_dir;
+// // 	try
+// // 	{    
+// // 		if (pc::parse_argument (argc, argv, "-dev", openni_device) > 0)
+// // 		{
+// // 			PCL_WARN("-dev capture.reset() \n");
+// // 			capture = new pcl::io::OpenNI2Grabber(openni_device);
+// // 			PCL_WARN("capture reset success! \n");
+// // 		}
+// // 		else
+// // 		{
+// // 			PCL_WARN("DEFAULT, getting OpenNI2Grabber ... \n");
+// // 			capture = new pcl::io::OpenNI2Grabber();
+// // 			PCL_WARN("DEFAULT capture.reset() \n");  
+// // 		}
+// // 	}
+// // 	catch (const pcl::PCLException& /*e*/) { return cout << "Can't open depth source" << endl, -1; }
+// // 
+// // 	float volume_size = pcl::device::kinfuLS::VOLUME_SIZE;
+// // 	pc::parse_argument (argc, argv, "--volume_size", volume_size);
+// // 	pc::parse_argument (argc, argv, "-vs", volume_size);
+// // 
+// // 	float shift_distance = pcl::device::kinfuLS::DISTANCE_THRESHOLD;
+// // 	pc::parse_argument (argc, argv, "--shifting_distance", shift_distance);
+// // 	pc::parse_argument (argc, argv, "-sd", shift_distance);
+// // 
+// // 	int snapshot_rate = pcl::device::kinfuLS::SNAPSHOT_RATE; // defined in device.h
+// // 	pc::parse_argument (argc, argv, "--snapshot_rate", snapshot_rate);
+// // 	pc::parse_argument (argc, argv, "-sr", snapshot_rate);
+// // 
+// // 	KinFuLSApp app (*capture, volume_size, shift_distance, snapshot_rate);
+// // 
+// // 	if (pc::parse_argument (argc, argv, "-eval", eval_folder) > 0)
+// // 	{
+// // 		//cout << "eval_folder = " << eval_folder << endl;
+// // 		//cout << "match_file = " << match_file << endl;
+// // 		app.toggleEvaluationMode(eval_folder, match_file);
+// // 	}
+// // 
+// // 	if (pc::find_switch (argc, argv, "--current-cloud") || pc::find_switch (argc, argv, "-cc"))
+// // 		app.initCurrentFrameView ();
+// // 
+// // 	if (pc::find_switch (argc, argv, "--save-views") || pc::find_switch (argc, argv, "-sv"))
+// // 		app.image_view_.accumulate_views_ = true;  //will cause bad alloc after some time  
+// // 
+// // 	if (pc::find_switch (argc, argv, "--registration") || pc::find_switch (argc, argv, "-r"))
+// // 	{
+// // 		if (pcd_input)
+// // 		{
+// // 			app.pcd_source_   = true;
+// // 			app.registration_ = true; // since pcd provides registered rgbd
+// // 		}
+// // 		else
+// // 		{
+// // 			app.initRegistration();
+// // 		}
+// // 	}
+// // 
+// // 	if (pc::find_switch (argc, argv, "--integrate-colors") || pc::find_switch (argc, argv, "-ic"))
+// // 	{
+// // 		if (pc::find_switch (argc, argv, "--registration") || pc::find_switch (argc, argv, "-r"))
+// // 		{
+// // 			app.toggleColorIntegration();
+// // 		}
+// // 		else
+// // 		{
+// // 			app.toggleColorIntegration_database();
+// // 		}
+// // 	}
+// // 
+// // 	if (pc::find_switch (argc, argv, "--extract-textures") || pc::find_switch (argc, argv, "-et"))      
+// // 		app.enable_texture_extraction_ = true;
+// // 
+// // 	// executing
+// // 	if (triggered_capture) 
+// // 		std::cout << "Capture mode: triggered\n";
+// // 	else				     
+// // 		std::cout << "Capture mode: stream\n";
+// // 
+// // 	// set verbosity level
+// // 	pcl::console::setVerbosityLevel(pcl::console::L_VERBOSE);
+// // 	try
+// // 	{
+// // 		if (pc::parse_argument (argc, argv, "-eval", eval_folder) > 0)
+// // 		{
+// // 			app.startMainLoop_use_database();
+// // 		}
+// // 		else
+// // 		{
+// // 			app.startMainLoop (triggered_capture);	
+// // 		}
+// // 	}
+// // 	catch (const pcl::PCLException& /*e*/) { cout << "PCLException" << endl; }
+// // 	catch (const std::bad_alloc& /*e*/) { cout << "Bad alloc" << endl; }
+// // 	catch (const std::exception& /*e*/) { cout << "Exception" << endl; }
+// 
+// 	//~ #ifdef HAVE_OPENCV
+// 	//~ for (size_t t = 0; t < app.image_view_.views_.size (); ++t)
+// 	//~ {
+// 	//~ if (t == 0)
+// 	//~ {
+// 	//~ cout << "Saving depth map of first view." << endl;
+// 	//~ cv::imwrite ("./depthmap_1stview.png", app.image_view_.views_[0]);
+// 	//~ cout << "Saving sequence of (" << app.image_view_.views_.size () << ") views." << endl;
+// 	//~ }
+// 	//~ char buf[4096];
+// 	//~ sprintf (buf, "./%06d.png", (int)t);
+// 	//~ cv::imwrite (buf, app.image_view_.views_[t]);
+// 	//~ printf ("writing: %s\n", buf);
+// 	//~ }
+// 	//~ #endif
+// 	std::cout << "pcl_kinfu_largeScale exiting...\n";
+// 	return 0;
+// }

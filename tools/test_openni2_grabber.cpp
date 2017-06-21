@@ -23,6 +23,8 @@ public:
 		cx = 318.643040;
 		cy = 255.313989;
 	}
+	~SimpleOpenNIViewer()
+	{}
     
     // 定义回调函数cloud_cb_,获取到数据时对数据进行处理
     void cloud_cb_(const pcl::PointCloud<pcl::PointXYZ>::ConstPtr &cloud)
@@ -87,11 +89,14 @@ public:
 
 int main()
 {
-	boost::shared_ptr<pcl::Grabber> capture;
-	capture.reset( new pcl::io::OpenNI2Grabber() );	
+	//boost::shared_ptr<pcl::Grabber> capture;
+	//capture.reset( new pcl::io::OpenNI2Grabber() );	
+	
+	pcl::Grabber *grab = new pcl::io::OpenNI2Grabber();
+	grab->start();
+	grab->stop();
 	
     //SimpleOpenNIViewer v;
-    
     //v.run();
     
     return 0;
