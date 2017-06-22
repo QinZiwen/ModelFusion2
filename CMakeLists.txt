@@ -22,8 +22,8 @@ find_package(PCL 1.8 REQUIRED)
 
 add_definitions( ${PCL_DEFINITIONS} )
 # link_libraries( ${PCL_LIBRARY_DIRS} )
-message("PCL include dir = " ${PCL_INCLUDE_DIRS})
-message("PCL libraries = " ${PCL_LIBRARIES})
+# message("PCL include dir = " ${PCL_INCLUDE_DIRS})
+# message("PCL libraries = " ${PCL_LIBRARIES})
 
 include_directories(
   ${PROJECT_SOURCE_DIR}

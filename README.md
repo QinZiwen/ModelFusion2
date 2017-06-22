@@ -19,3 +19,21 @@ Getting dense reconstruction based on kinfu_large_scale and orbslam2.
 - OpenCV
 - cuda
 - Eigen3
+
+# Compile
+```
+$ git clone https://github.com/QinZiwen/ModelFusion2.git
+$ cd ModelFusion2
+$ mkdir build; cd build; make; cd ..
+```
+
+# Usage
+- online fusion by kinect2
+```
+$ ./bin/pcl_inline_kinfu_largeScale
+```
+
+- offline fusion with TUM Database
+```
+$ ./bin/pcl_offline_kinfu_largeScale -eval ~/Database/rgbd_dataset_freiburg1_room/
+```

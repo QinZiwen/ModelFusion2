@@ -2,8 +2,8 @@
 FILE(GLOB hdrs "*.h*")
 
 ## KINECT FUSION
-set(the_target pcl_kinfu_largeScale)
-set(srcs kinfuLS_app.cpp evaluation.cpp)
+set(the_target pcl_inline_kinfu_largeScale)
+set(srcs inLine_kinfu.cpp evaluation.cpp)
 
 add_executable(${the_target} ${srcs} ${hdrs})
 target_link_libraries(${the_target}
