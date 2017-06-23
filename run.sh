@@ -1,0 +1,1 @@
+./bin/orbslam2TSDF ~/Project/ORB_SLAM2/Vocabulary/ORBvoc.txt ~/Project/ORB_SLAM2/Examples/RGB-D/TUM1.yaml ~/Database/rgbd_dataset_freiburg1_room/ ~/Database/rgbd_dataset_freiburg1_room/associated.txt

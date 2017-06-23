@@ -244,6 +244,10 @@ namespace pcl
           {
             return (has_shifted_);
           }
+          
+	  public:		  
+          typedef Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Matrix3frm;
+          typedef Eigen::Vector3f Vector3f;
 
         private:
           
@@ -262,9 +266,6 @@ namespace pcl
 
           /** \brief Vertex or Normal Map type */
           typedef DeviceArray2D<float> MapArr;
-          
-          typedef Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Matrix3frm;
-          typedef Eigen::Vector3f Vector3f;
           
           /** \brief helper function that converts transforms from host to device types
             * \param[in] transformIn1 first transform to convert
