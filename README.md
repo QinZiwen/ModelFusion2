@@ -28,12 +28,17 @@ $ mkdir build; cd build; make; cd ..
 ```
 
 # Usage
-- online fusion by kinect2
+- online kinectfusion by kinect2
 ```
 $ ./bin/pcl_inline_kinfu_largeScale
 ```
 
-- offline fusion with TUM Database
+- offline kinectfusion with TUM Database
 ```
 $ ./bin/pcl_offline_kinfu_largeScale -eval ~/Database/rgbd_dataset_freiburg1_room/
+```
+
+- offline kinectfusion by orbslam2 to estimate camera pose
+```
+./bin/orbslam2TSDF ~/Project/ORB_SLAM2/Vocabulary/ORBvoc.txt ~/Project/ORB_SLAM2/Examples/RGB-D/TUM1.yaml ~/Database/rgbd_dataset_freiburg1_room/ ~/Database/rgbd_dataset_freiburg1_room/associated.txt
 ```
