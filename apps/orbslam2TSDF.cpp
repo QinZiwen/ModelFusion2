@@ -775,7 +775,7 @@ struct KinFuLSApp
 	PCL_WARN("-- toggleEvaluationMode nice!\n");
   }
   
-	void executeUseDataBase(cv::Mat &depthMat, cv::Mat &imageMat,const PtrStepSz<const unsigned short>& depth, const PtrStepSz<const pcl::gpu::kinfuLS::PixelRGB>& rgb24, double tframe)
+	bool executeUseDataBase(cv::Mat &depthMat, cv::Mat &imageMat,const PtrStepSz<const unsigned short>& depth, const PtrStepSz<const pcl::gpu::kinfuLS::PixelRGB>& rgb24, double tframe)
 	{        
 		bool has_image = false;
 		frame_counter_++;
@@ -783,7 +783,10 @@ struct KinFuLSApp
 
 		was_lost_ = kinfu_->icpIsLost();
 		if(was_lost_)
+		{
 			PCL_WARN("kinfu has been lost\n");
+			return false;
+		}
 
 		depth_device_.upload (depth.data, depth.step, depth.rows, depth.cols);
 
@@ -807,7 +810,7 @@ struct KinFuLSApp
 			if(T.empty())
 			{
 				cout << "orbslam2 lost!" <<endl;
-				return;
+				return false;
 			}
 			else
 				has_image = true;
@@ -865,6 +868,8 @@ struct KinFuLSApp
 // 
 		// display ICP state
 		scene_cloud_view_.displayICPState (*kinfu_, was_lost_);
+		
+		return true;
 	}
   
 	void startMainLoop_use_database (vector<double> vTimestamps, vector<string> vstrRGB, vector<string> vstrDepth)
@@ -887,7 +892,10 @@ struct KinFuLSApp
 			
 			try 
 			{
-				this->executeUseDataBase(depthMat, imageMat, depth, rgb24, tframe);
+				if(! this->executeUseDataBase(depthMat, imageMat, depth, rgb24, tframe))
+				{
+					break;
+				}
 			}
 			catch (const std::bad_alloc& /*e*/) { cout << "Bad alloc" << endl; break; }
 			catch (const std::exception& /*e*/) { cout << "Exception" << endl; break; }
@@ -899,7 +907,8 @@ struct KinFuLSApp
 		exit_ = true;
 		boost::this_thread::sleep (boost::posix_time::millisec (100));
 		
-		kinfu_->extractAndSaveWorld();
+		kinfu_->extractAndSaveWorld("orbslam2TSDF_world.pcd");
+		orbslam2_->SaveTrajectoryTUM("orbslam2TSDF_pose.txt");
 	}
 	
 	bool MatToDevice(const cv::Mat &depthMat, const cv::Mat &imageMat, PtrStepSz<const unsigned short>& depth, PtrStepSz<const pcl::gpu::kinfuLS::PixelRGB>& rgb24)

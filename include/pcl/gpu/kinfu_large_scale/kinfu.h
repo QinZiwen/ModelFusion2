@@ -218,7 +218,7 @@ namespace pcl
           /** \brief Extract the world and save it.
             */
           void
-          extractAndSaveWorld ();
+          extractAndSaveWorld (const std::string pcd_name = "world.pcd");
           
           /** \brief Returns true if ICP is currently lost */
           bool

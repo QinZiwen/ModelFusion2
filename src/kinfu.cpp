@@ -179,7 +179,7 @@ pcl::gpu::kinfuLS::KinfuTracker::rows ()
 }
 
 void
-pcl::gpu::kinfuLS::KinfuTracker::extractAndSaveWorld ()
+pcl::gpu::kinfuLS::KinfuTracker::extractAndSaveWorld (const std::string pcd_name)
 {
   
   //extract current volume to world model
@@ -201,7 +201,7 @@ pcl::gpu::kinfuLS::KinfuTracker::extractAndSaveWorld ()
   else
   {
     PCL_INFO ("Saving current world to world.pcd with %d points.\n", cloud_size);
-    pcl::io::savePCDFile<pcl::PointXYZI> ("world.pcd", *(cyclical_.getWorldModel ()->getWorld ()), true);
+    pcl::io::savePCDFile<pcl::PointXYZI> (pcd_name, *(cyclical_.getWorldModel ()->getWorld ()), true);
     return;
   }
   
@@ -1046,7 +1046,7 @@ pcl::gpu::kinfuLS::KinfuTracker::keyModel_integrateWithPose(const DepthMap &dept
 		convertTransforms (initial_cam_rot, initial_cam_rot_inv, initial_cam_trans, device_initial_cam_rot, device_initial_cam_rot_inv, device_initial_cam_trans);
 
 		// integrate current depth map into tsdf volume, from default initial pose.
-		integrateTsdfVolume(depth_raw, intr, device_volume_size, device_initial_cam_rot_inv, device_initial_cam_trans, tsdf_volume_->getTsdfTruncDist(), tsdf_volume_->data(), getCyclicalBufferStructure (), depthRawScaled_);
+		integrateTsdfVolume(depth_biFilter, intr, device_volume_size, device_initial_cam_rot_inv, device_initial_cam_trans, tsdf_volume_->getTsdfTruncDist(), tsdf_volume_->data(), getCyclicalBufferStructure (), depthRawScaled_);
 	}
 
 	// check if we need to shift
@@ -1070,26 +1070,11 @@ pcl::gpu::kinfuLS::KinfuTracker::keyModel_integrateWithPose(const DepthMap &dept
 		// Volume integration  
 		if (integrate)
 		{
-			integrateTsdfVolume (depth_raw, intr, device_volume_size, device_current_rotation_inv, device_current_translation_local, tsdf_volume_->getTsdfTruncDist (), tsdf_volume_->data (), getCyclicalBufferStructure (), depthRawScaled_);
+			integrateTsdfVolume (depth_biFilter, intr, device_volume_size, device_current_rotation_inv, device_current_translation_local, tsdf_volume_->getTsdfTruncDist (), tsdf_volume_->data (), getCyclicalBufferStructure (), depthRawScaled_);
 		}
 	}
 	
 	++global_time_;
-
-// 	Matrix3frm initial_cam_rot = Rwc; //  [Ri|ti] - pos of camera
-// 	Matrix3frm initial_cam_rot_inv = initial_cam_rot.inverse ();
-// 	Vector3f   initial_cam_trans = Twc; //  transform from camera to global coo space for (i-1)th camera pose
-// 	
-// 	// Convert pose to device types
-// 	Mat33 device_initial_cam_rot, device_initial_cam_rot_inv;
-// 	float3 device_initial_cam_trans;
-// 	convertTransforms (initial_cam_rot, initial_cam_rot_inv, initial_cam_trans, device_initial_cam_rot, device_initial_cam_rot_inv, device_initial_cam_trans);
-// 
-// 	// integrate current depth map into tsdf volume, from default initial pose.
-// 	integrateTsdfVolume(depth_raw, intr, device_volume_size, device_initial_cam_rot_inv, device_initial_cam_trans, tsdf_volume_->getTsdfTruncDist(), tsdf_volume_->data(), getCyclicalBufferStructure (), depthRawScaled_);
-// 	
-// 	rmats_.push_back(Rwc); 
-// 	tvecs_.push_back(Twc);
 }
 
 void

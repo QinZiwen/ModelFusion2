@@ -727,7 +727,8 @@ struct KinFuLSApp
 
     Eigen::Matrix3f R = Eigen::Matrix3f::Identity ();   // * AngleAxisf( pcl::deg2rad(-30.f), Vector3f::UnitX());
     Eigen::Vector3f t = volume_size * 0.5f - Vector3f (0, 0, volume_size (2) / 2 * 1.2f);
-
+	//Eigen::Vector3f t(0,0,0);
+	
     Eigen::Affine3f pose = Eigen::Translation3f (t) * Eigen::AngleAxisf (R);
 
     kinfu_->setInitialCameraPose (pose);
@@ -921,7 +922,7 @@ struct KinFuLSApp
     
   }
   
-  void executeUseDataBase(const PtrStepSz<const unsigned short>& depth, const PtrStepSz<const pcl::gpu::kinfuLS::PixelRGB>& rgb24, bool has_data)
+  bool executeUseDataBase(const PtrStepSz<const unsigned short>& depth, const PtrStepSz<const pcl::gpu::kinfuLS::PixelRGB>& rgb24, bool has_data)
   {        
     bool has_image = false;
     frame_counter_++;
@@ -929,7 +930,10 @@ struct KinFuLSApp
 
     was_lost_ = kinfu_->icpIsLost();
 	if(was_lost_)
+	{
 		PCL_WARN("kinfu has been lost\n");
+		return false;
+	}
     
     if (has_data)
     {
@@ -1016,6 +1020,7 @@ struct KinFuLSApp
     // display ICP state
     scene_cloud_view_.displayICPState (*kinfu_, was_lost_);
     
+	return true;
   }
 
   //void source_cb1(const boost::shared_ptr<openni_wrapper::DepthImage>& depth_wrapper)  
@@ -1235,7 +1240,10 @@ void startMainLoop_use_database ()
 	{
 		try 
 		{
-			this->executeUseDataBase(depth, rgb24, true);
+			if(! this->executeUseDataBase(depth, rgb24, true))
+			{
+				break;
+			};
 		}
 		catch (const std::bad_alloc& /*e*/) { cout << "Bad alloc" << endl; break; }
 		catch (const std::exception& /*e*/) { cout << "Exception" << endl; break; }
@@ -1246,6 +1254,8 @@ void startMainLoop_use_database ()
 
 	exit_ = true;
 	boost::this_thread::sleep (boost::posix_time::millisec (100));
+	
+	kinfu_->extractAndSaveWorld("offline_kinfu_world.pcd");
 }
       
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
